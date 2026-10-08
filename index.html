@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VeanCoins — использование по кварталам</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{ --bg:#FAFAF8; --surface:#FFFFFF; --chip:#F1EFE8; --border:rgba(20,20,20,0.08);
+    --ink:#141414; --muted:#6B6B66; --grid:rgba(20,20,20,0.07);
+    --pink:#D4537E; --gray:#B4B2A9; --bord:#72243E; --green:#3B6D11; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#161514; --surface:#1E1D1B; --chip:#2A2926; --border:rgba(255,255,255,0.10);
+      --ink:#F2F1EC; --muted:#A7A59C; --grid:rgba(255,255,255,0.08);
+      --pink:#ED93B1; --gray:#6E6C66; --bord:#F09595; --green:#97C459; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:820px;margin:0 auto;padding:32px 20px 60px}
+  h1{font-size:20px;font-weight:600;margin:0 0 4px}
+  .sub{font-size:13px;color:var(--muted);margin:0 0 22px}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:20px}
+  .tile{background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:14px 16px;animation:up .6s ease both}
+  .tile:nth-child(2){animation-delay:.1s}.tile:nth-child(3){animation-delay:.2s}
+  .tile .l{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .tile .v{font-size:28px;font-weight:600;color:var(--pink)}
+  .tile .d{font-size:12px;color:var(--green);margin-top:4px;font-weight:600}
+  .card{background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:16px 18px 12px;margin-bottom:14px;animation:up .6s ease both}
+  .card h2{font-size:14px;font-weight:600;margin:0 0 10px}
+  .box{position:relative;height:250px}
+  .box.tall{height:300px}
+  .sec{font-size:15px;font-weight:600;margin:26px 0 10px}
+  @keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>VeanCoins — использование по кварталам</h1>
+  <p class="sub">Начисление и трата коинсов, 2026</p>
+
+  <div class="tiles">
+    <div class="tile"><div class="l">Потрачено, Q3</div><div class="v">2 657</div><div class="d">+107% к Q2 (×4 к Q1)</div></div>
+    <div class="tile"><div class="l">Начислено, Q3</div><div class="v">52 172</div><div class="d">+59% к Q2 (×2,6 к Q1)</div></div>
+    <div class="tile"><div class="l">Использование, Q3</div><div class="v">5,09%</div><div class="d">+1,2 п.п. к Q2</div></div>
+  </div>
+
+  <div class="card"><h2>Потрачено коинсов</h2><div class="box"><canvas id="c1"></canvas></div></div>
+  <div class="card"><h2>Использование, % от начисленных</h2><div class="box"><canvas id="c2"></canvas></div></div>
+  <div class="card"><h2>Начислено коинсов</h2><div class="box"><canvas id="c3"></canvas></div></div>
+
+  <h2 class="sec">Куда тратят коинсы — Q2 и Q3</h2>
+  <div class="card"><div class="box tall"><canvas id="c4"></canvas></div></div>
+  <h2 class="sec">Откуда приходят коинсы — Q2 и Q3</h2>
+  <div class="card"><div class="box tall"><canvas id="c5"></canvas></div></div>
+  <h2 class="sec">Использование по категориям</h2>
+  <div class="tiles">
+    <div class="tile"><div class="l">Услуги</div><div class="v">15,4%</div><div class="d">+8,0 п.п. к Q2 (7,4%)</div></div>
+    <div class="tile"><div class="l">Продажи</div><div class="v">86,8%</div><div class="d">+31,3 п.п. к Q2 (55,5%)</div></div>
+  </div>
+</div>
+<script>
+var labels = ['Q1','Q2','Q3'];
+var plus  = [20373.42, 32776.16, 52172.29];
+var minus = [667.50, 1285.00, 2657.00];
+var rate  = minus.map(function(m,i){return m/plus[i]*100;});
+
+var css = getComputedStyle(document.documentElement);
+function v(n){return css.getPropertyValue(n).trim();}
+var pink=v('--pink'), gray=v('--gray'), ink=v('--ink'), muted=v('--muted'), grid=v('--grid');
+var colors=[gray,gray,pink];
+var borders=[gray,gray,pink];
+
+function fmt(x,d){return x.toLocaleString('ru-RU',{minimumFractionDigits:d||0,maximumFractionDigits:d||0});}
+
+function labelPlugin(unit,dec){
+  return {id:'lbl',afterDatasetsDraw:function(ch){
+    var c=ch.ctx; c.save(); c.font='600 13px -apple-system,Segoe UI,Arial'; c.fillStyle=ink; c.textAlign='center';
+    ch.getDatasetMeta(0).data.forEach(function(b,i){
+      c.fillText(fmt(ch.data.datasets[0].data[i],dec)+unit,b.x,b.y-8);
+    });
+    c.restore();
+  }};
+}
+function growthPlugin(texts){
+  return {id:'gr',afterDatasetsDraw:function(ch){
+    var m=ch.getDatasetMeta(0).data, c=ch.ctx;
+    c.save(); c.strokeStyle=pink; c.fillStyle=pink; c.lineWidth=2; c.font='700 13px -apple-system,Segoe UI,Arial'; c.textAlign='center';
+    for(var i=0;i<2;i++){
+      var x1=m[i].x+18, x2=m[i+1].x-18, y=ch.chartArea.top+26;
+      c.beginPath(); c.moveTo(x1,y); c.lineTo(x2-6,y); c.stroke();
+      c.beginPath(); c.moveTo(x2,y); c.lineTo(x2-8,y-5); c.lineTo(x2-8,y+5); c.closePath(); c.fill();
+      c.fillText(texts[i],(x1+x2)/2,y-9);
+    }
+    c.restore();
+  }};
+}
+function make(id,data,unit,dec,growth,maxPad){
+  var ctx=document.getElementById(id);
+  var plugins=[labelPlugin(unit,dec)]; if(growth) plugins.push(growthPlugin(growth));
+  new Chart(ctx,{type:'bar',
+    data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderColor:borders,borderWidth:0,borderRadius:6,barPercentage:0.55}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:1100,easing:'easeOutQuart'},
+      layout:{padding:{top:22}},
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{x:{grid:{display:false},ticks:{color:muted,font:{size:12}},border:{display:false}},
+              y:{beginAtZero:true,suggestedMax:Math.max.apply(null,data)*(maxPad||1.45),grid:{color:grid},ticks:{display:false},border:{display:false}}}},
+    plugins:plugins});
+}
+make('c1',minus,'',0,['+93%','+107%']);
+make('c2',rate,'%',2,['+0,6 п.п.','+1,2 п.п.']);
+make('c3',plus,'',0,['+61%','+59%']);
+
+function grouped(id,cats,q2,q3,gtexts){
+  var plug={id:'g2',afterDatasetsDraw:function(ch){
+    var c=ch.ctx; c.save(); c.font='600 12px -apple-system,Segoe UI,Arial'; c.textAlign='center';
+    [0,1].forEach(function(di){
+      ch.getDatasetMeta(di).data.forEach(function(b,i){
+        c.fillStyle=ink; c.fillText(fmt(ch.data.datasets[di].data[i],0),b.x,b.y-6);
+      });
+    });
+    c.font='700 13px -apple-system,Segoe UI,Arial'; c.fillStyle=pink;
+    var m0=ch.getDatasetMeta(0).data, m1=ch.getDatasetMeta(1).data;
+    cats.forEach(function(_,i){ c.fillText(gtexts[i],(m0[i].x+m1[i].x)/2,ch.chartArea.top-2); });
+    c.restore();
+  }};
+  new Chart(document.getElementById(id),{type:'bar',
+    data:{labels:cats,datasets:[
+      {label:'Q2',data:q2,backgroundColor:gray,borderRadius:6,barPercentage:0.9,categoryPercentage:0.7},
+      {label:'Q3',data:q3,backgroundColor:pink,borderRadius:6,barPercentage:0.9,categoryPercentage:0.7}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:1100,easing:'easeOutQuart'},
+      layout:{padding:{top:30}},
+      plugins:{legend:{display:true,position:'bottom',labels:{color:muted,boxWidth:12,boxHeight:12}},tooltip:{enabled:false}},
+      scales:{x:{grid:{display:false},ticks:{color:muted,font:{size:12}},border:{display:false}},
+              y:{beginAtZero:true,suggestedMax:Math.max.apply(null,q2.concat(q3))*1.2,grid:{color:grid},ticks:{display:false},border:{display:false}}}},
+    plugins:[plug]});
+}
+grouped('c4',['Услуги','Продажи','Прочие категории'],[629,434,222],[1906,726,25],['+203%','+67%','−89%']);
+grouped('c5',['Услуги','Продажи','Прочие категории'],[8508,782,23486],[12389,836,38947],['+46%','+7%','+66%']);
+</script>
+</body>
+</html>
